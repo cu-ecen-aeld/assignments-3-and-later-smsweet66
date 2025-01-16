@@ -17,4 +17,5 @@ void test_validate_my_username()
     const char* usernameLiteral = my_username();
     const char* usernameConf = malloc_username_from_conf_file();
     TEST_ASSERT_TRUE_MESSAGE(strncmp(usernameLiteral, usernameConf, strlen(usernameLiteral)) == 0,"AESD students, please fix me!");
+    free(usernameConf);
 }
