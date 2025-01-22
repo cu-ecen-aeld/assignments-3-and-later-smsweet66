@@ -13,6 +13,7 @@ FINDER_APP_DIR=$(realpath $(dirname $0))
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
 WORKING_DIRECTORY=$(pwd)
+GCC_ARM_VERSION=13.3.rel1
 
 if [ $# -lt 1 ]
 then
