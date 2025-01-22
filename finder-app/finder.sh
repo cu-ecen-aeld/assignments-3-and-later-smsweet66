@@ -19,7 +19,7 @@ fi
 files=$(find $1 -type f)
 
 # gets the number of files under the given folder
-num_files=$(find $1 -type f -printf '.' | wc -c)
+num_files=$(find $1 -type f | wc -l)
 
 # gets the total number of matching lines from each of the files
 num_lines=0
