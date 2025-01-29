@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (listen(server_descriptor, 1) == -1)
+    if (listen(server_descriptor, 5) == -1)
     {
         close_file_descriptors("listen");
         exit(1);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        socklen_t client_length;
+        socklen_t client_length = sizeof(client_address);
         memset(&client_address, 0, sizeof(client_address));
         client_descriptor = accept(server_descriptor, (struct sockaddr *)&client_address, &client_length);
         if (client_descriptor == -1)
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
         while (fgets(buffer, sizeof(buffer), file) != NULL)
         {
             printf("Sending data: %s\n", buffer);
-            if (send(server_descriptor, buffer, strlen(buffer), 0) == -1)
+            if (send(client_descriptor, buffer, strlen(buffer), 0) == -1)
             {
                 close_file_descriptors("sendto");
                 exit(1);
