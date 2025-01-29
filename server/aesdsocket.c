@@ -107,6 +107,13 @@ int main(int argc, char *argv[])
 
     openlog(NULL, 0, LOG_USER);
 
+    output_file = fopen("/var/tmp/aesdsocketdata", "w+");
+    if (output_file == NULL)
+    {
+        close_file_descriptors("fopen");
+        exit(1);
+    }
+
     while (1)
     {
         socklen_t client_length = sizeof(client_address);
@@ -117,18 +124,12 @@ int main(int argc, char *argv[])
             close_file_descriptors("accept");
             exit(1);
         }
-
         syslog(LOG_NOTICE, "Accepted connection from %s", inet_ntoa(client_address.sin_addr));
-        FILE *file = fopen("/var/tmp/aesdsocketdata", "w+");
-        if (file == NULL)
-        {
-            close_file_descriptors("fopen");
-            exit(1);
-        }
 
         ssize_t received_bytes = 0;
         char buffer[10000] = {0};
-        while (1)
+        memset(buffer, 0, sizeof(buffer));
+        while (strchr(buffer, '\n') == NULL)
         {
             received_bytes = recv(client_descriptor, buffer, sizeof(buffer) - 1, 0);
             if (received_bytes == -1)
@@ -138,30 +139,24 @@ int main(int argc, char *argv[])
             }
             else if (received_bytes == 0)
             {
-                break;
+                continue;
             }
 
             buffer[received_bytes] = '\0';
-            printf("Received String: %s\n", buffer);
-            if (fprintf(file, "%s", buffer) == -1)
+            fprintf(stderr, "Received String: %s\n", buffer);
+            if (fprintf(output_file, "%s", buffer) == -1)
             {
                 close_file_descriptors("fprintf");
                 exit(1);
             }
         }
 
-        fclose(file);
-        file = fopen("/var/tmp/aesdsocketdata", "r");
-        if (file == NULL)
+        fseek(output_file, 0, SEEK_SET);
+        memset(buffer, 0, sizeof(buffer));
+        while (fgets(buffer, sizeof(buffer), output_file) != NULL)
         {
-            close_file_descriptors("fopen");
-            exit(1);
-        }
-
-        while (fgets(buffer, sizeof(buffer), file) != NULL)
-        {
-            printf("Sending data: %s\n", buffer);
-            if (send(client_descriptor, buffer, strlen(buffer), 0) == -1)
+            fprintf(stderr, "Sending: %s\n", buffer);
+            if (sendto(client_descriptor, buffer, strlen(buffer), 0, (struct sockaddr *)&client_address, client_length) == -1)
             {
                 close_file_descriptors("sendto");
                 exit(1);
