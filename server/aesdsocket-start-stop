@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]
+then
+    echo "Expected 1 argument, received $#"
+    exit 1
+fi
+
+command=$1
+
+if [ "$command" = "stop" ];
+then
+    echo "stopping"
+    start-stop-daemon -K -n aesdsocket
+elif [ "$command" = "start" ];
+then
+    echo "starting"
+    start-stop-daemon -x /usr/bin/aesdsocket -S -- -d
+fi
