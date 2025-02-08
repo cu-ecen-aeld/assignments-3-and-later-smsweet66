@@ -12,7 +12,7 @@ void *connection_thread_function(void *thread_arguments)
     memset(connection_info->message_buffer, 0, sizeof(connection_info->message_buffer));
     if (pthread_mutex_lock(connection_info->output_file_mutex) != 0)
     {
-        perror("pthread_mutex_lock");
+        fprintf(stderr, "Failed to lock output file mutex: %s, %d", __FILE__, __LINE__);
         goto output_file_mutex_lock_failed;
     }
 
@@ -52,7 +52,7 @@ early_return:
     }
     syslog(LOG_NOTICE, "Closed connection from %s", inet_ntoa(connection_info->client_address.sin_addr));
 output_file_mutex_lock_failed:
-    connection_info->thread_complete = true;
+    atomic_store(&connection_info->thread_complete, true);
     close(connection_info->client_descriptor);
 
     return NULL;

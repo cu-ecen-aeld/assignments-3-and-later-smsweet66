@@ -14,13 +14,13 @@ void *timestamp_writer_thread_function(void *thread_arguments)
         struct timespec now = {0};
         for (clock_gettime(CLOCK_MONOTONIC, &now); now.tv_sec - start.tv_sec < 10; clock_gettime(CLOCK_MONOTONIC, &now))
         {
-            if (timestamp_writer->should_close)
+            if (atomic_load(&timestamp_writer->should_close))
             {
                 return NULL;
             }
         }
 
-        char buffer[40] = {0};
+        char buffer[80] = {0};
         time_t current_time;
         struct tm *temp_time;
 
@@ -40,7 +40,7 @@ void *timestamp_writer_thread_function(void *thread_arguments)
 
         if (pthread_mutex_lock(timestamp_writer->output_file_mutex) != 0)
         {
-            perror("pthread_mutex_lock");
+            fprintf(stderr, "Failed to lock output file mutex: %s, %d", __FILE__, __LINE__);
             return NULL;
         }
 

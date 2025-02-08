@@ -1,9 +1,11 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <stdatomic.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/queue.h>
 
 typedef struct ConnectionInfo
 {
@@ -15,7 +17,17 @@ typedef struct ConnectionInfo
     socklen_t client_length;
     char message_buffer[500];
 
-    _Atomic bool thread_complete;
+    atomic_bool thread_complete;
 } ConnectionInfo;
+
+typedef struct ConnectionThread
+{
+    ConnectionInfo connection_info;
+    pthread_t thread;
+    SLIST_ENTRY(ConnectionThread)
+    next;
+} ConnectionThread;
+
+typedef SLIST_HEAD(ConnectionListHead, ConnectionThread) ConnectionListHead;
 
 void *connection_thread_function(void *thread_arguments);

@@ -9,26 +9,15 @@
 #include "connection_info.h"
 #include "timestamp_writer.h"
 
-typedef struct ConnectionThread
-{
-    ConnectionInfo connection_info;
-    pthread_t thread;
-    SLIST_ENTRY(ConnectionThread)
-    next;
-} ConnectionThread;
-
-typedef SLIST_HEAD(ConnectinListHead, ConnectionThread) ConnectinListHead;
-
 int *server_descriptor = NULL;
 struct sockaddr_in *server_address = NULL;
 
 FILE *output_file = NULL;
 pthread_mutex_t *output_file_mutex = NULL;
 
-ConnectinListHead *head = NULL;
+TimestampWriterThread *timestamp_writer_thread = NULL;
 
-TimestampWriter timestamp_writer = {0};
-pthread_t timestamp_writer_thread = 0;
+ConnectionListHead *head = NULL;
 
 void handle_incoming_signal(int signal)
 {
@@ -49,8 +38,13 @@ void handle_incoming_signal(int signal)
         free(head);
     }
 
-    timestamp_writer.should_close = true;
-    pthread_join(timestamp_writer_thread, NULL);
+    if (timestamp_writer_thread != NULL)
+    {
+        atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
+        pthread_join(timestamp_writer_thread->thread, NULL);
+        printf("timestamp writer joined\n");
+        free(timestamp_writer_thread);
+    }
 
     if (output_file != NULL)
     {
@@ -175,7 +169,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (listen(*server_descriptor, 5) == -1)
+    if (listen(*server_descriptor, 100) == -1)
     {
         perror("listen");
         goto listen_failed;
@@ -201,9 +195,17 @@ int main(int argc, char *argv[])
         goto output_file_mutex_init_failed;
     }
 
-    timestamp_writer.output_file = output_file;
-    timestamp_writer.output_file_mutex = output_file_mutex;
-    if (pthread_create(&timestamp_writer_thread, NULL, timestamp_writer_thread_function, &timestamp_writer) != 0)
+    timestamp_writer_thread = (TimestampWriterThread *)malloc(sizeof(TimestampWriterThread));
+    if (timestamp_writer_thread == NULL)
+    {
+        perror("malloc");
+        goto timestamp_writer_thread_malloc_failed;
+    }
+
+    atomic_store(&timestamp_writer_thread->thread_arguments.should_close, false);
+    timestamp_writer_thread->thread_arguments.output_file = output_file;
+    timestamp_writer_thread->thread_arguments.output_file_mutex = output_file_mutex;
+    if (pthread_create(&timestamp_writer_thread->thread, NULL, timestamp_writer_thread_function, (void *)&timestamp_writer_thread->thread_arguments) != 0)
     {
         perror("pthread_create");
         goto timestamp_writer_thread_create_failed;
@@ -211,13 +213,14 @@ int main(int argc, char *argv[])
 
     openlog(NULL, 0, LOG_USER);
 
-    head = (ConnectinListHead *)malloc(sizeof(ConnectinListHead));
+    head = (ConnectionListHead *)malloc(sizeof(ConnectionListHead));
     if (head == NULL)
     {
         perror("malloc");
         goto connection_list_head_malloc_failed;
     }
 
+    memset(head, 0, sizeof(ConnectionListHead));
     SLIST_INIT(head);
     while (true)
     {
@@ -229,6 +232,7 @@ int main(int argc, char *argv[])
         }
 
         memset(connection_thread, 0, sizeof(ConnectionThread));
+        SLIST_INSERT_HEAD(head, connection_thread, next);
 
         connection_thread->connection_info.client_length = sizeof(connection_thread->connection_info.client_address);
         connection_thread->connection_info.client_descriptor = accept(*server_descriptor, (struct sockaddr *)&connection_thread->connection_info.client_address, &connection_thread->connection_info.client_length);
@@ -251,11 +255,9 @@ int main(int argc, char *argv[])
             goto error_in_loop;
         }
 
-        SLIST_INSERT_HEAD(head, connection_thread, next);
-
         for (ConnectionThread *iter = SLIST_FIRST(head); iter != NULL; iter = SLIST_NEXT(iter, next))
         {
-            if (iter->connection_info.thread_complete)
+            if (atomic_load(&iter->connection_info.thread_complete))
             {
                 SLIST_REMOVE(head, iter, ConnectionThread, next);
                 if (pthread_join(iter->thread, NULL))
@@ -282,9 +284,11 @@ error_in_loop:
 
     free(head);
 connection_list_head_malloc_failed:
-    timestamp_writer.should_close = true;
-    pthread_join(timestamp_writer_thread, NULL);
+    timestamp_writer_thread->thread_arguments.should_close = true;
+    pthread_join(timestamp_writer_thread->thread, NULL);
 timestamp_writer_thread_create_failed:
+    free(timestamp_writer_thread);
+timestamp_writer_thread_malloc_failed:
     pthread_mutex_destroy(output_file_mutex);
     closelog();
 output_file_mutex_init_failed:
