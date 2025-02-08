@@ -22,7 +22,6 @@ ConnectionListHead *head = NULL;
 void handle_incoming_signal(int signal)
 {
     syslog(LOG_NOTICE, "Caught signal, exiting");
-    printf("Caught signal, exiting\n");
     if (head != NULL)
     {
         while (!SLIST_EMPTY(head))
@@ -42,7 +41,6 @@ void handle_incoming_signal(int signal)
     {
         atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
         pthread_join(timestamp_writer_thread->thread, NULL);
-        printf("timestamp writer joined\n");
         free(timestamp_writer_thread);
     }
 
@@ -140,32 +138,10 @@ int main(int argc, char *argv[])
 
     if (argc == 2)
     {
-        switch (fork())
+        if (daemon(0, 0) != 0)
         {
-        case -1:
-            perror("fork");
+            perror("daemon");
             goto daemon_init_failed;
-        case 0:
-            break;
-        default:
-            exit(0);
-        }
-
-        if (setsid() == -1)
-        {
-            perror("setsid");
-            goto daemon_init_failed;
-        }
-
-        switch (fork())
-        {
-        case -1:
-            perror("fork");
-            goto daemon_init_failed;
-        case 0:
-            break;
-        default:
-            exit(0);
         }
     }
 
@@ -255,19 +231,29 @@ int main(int argc, char *argv[])
             goto error_in_loop;
         }
 
-        for (ConnectionThread *iter = SLIST_FIRST(head); iter != NULL; iter = SLIST_NEXT(iter, next))
+        ConnectionThread *iter = SLIST_FIRST(head);
+        ConnectionThread *next_connection = SLIST_NEXT(iter, next);
+
+        // Skips theck of list head as it was just created
+        while (next_connection != NULL)
         {
-            if (atomic_load(&iter->connection_info.thread_complete))
+            if (atomic_load(&next_connection->connection_info.thread_complete))
             {
-                SLIST_REMOVE(head, iter, ConnectionThread, next);
+                SLIST_REMOVE(head, next_connection, ConnectionThread, next);
                 if (pthread_join(iter->thread, NULL))
                 {
                     // log error and continue
                     perror("pthread_join");
                 }
 
-                free(iter);
+                free(next_connection);
             }
+            else
+            {
+                iter = next_connection;
+            }
+
+            next_connection = SLIST_NEXT(iter, next);
         }
     }
 
@@ -284,7 +270,7 @@ error_in_loop:
 
     free(head);
 connection_list_head_malloc_failed:
-    timestamp_writer_thread->thread_arguments.should_close = true;
+    atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
     pthread_join(timestamp_writer_thread->thread, NULL);
 timestamp_writer_thread_create_failed:
     free(timestamp_writer_thread);
