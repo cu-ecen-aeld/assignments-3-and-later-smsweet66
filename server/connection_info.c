@@ -2,6 +2,7 @@
 
 #include <syslog.h>
 #include <string.h>
+#include <unistd.h>
 
 void *connection_thread_function(void *thread_arguments)
 {
@@ -25,7 +26,6 @@ void *connection_thread_function(void *thread_arguments)
         }
 
         connection_info->message_buffer[received_bytes] = '\0';
-        fprintf(stderr, "Received String: %s\n", connection_info->message_buffer);
 
         if (fprintf(connection_info->output_file, "%s", connection_info->message_buffer) == -1)
         {
@@ -38,7 +38,6 @@ void *connection_thread_function(void *thread_arguments)
     memset(connection_info->message_buffer, 0, sizeof(connection_info->message_buffer));
     while (fgets(connection_info->message_buffer, sizeof(connection_info->message_buffer), connection_info->output_file) != NULL)
     {
-        fprintf(stderr, "Sending: %s\n", connection_info->message_buffer);
         if (sendto(connection_info->client_descriptor, connection_info->message_buffer, strlen(connection_info->message_buffer), 0, (struct sockaddr *)&connection_info->client_address, connection_info->client_length) == -1)
         {
             perror("sendto");
@@ -54,6 +53,7 @@ early_return:
     syslog(LOG_NOTICE, "Closed connection from %s", inet_ntoa(connection_info->client_address.sin_addr));
 output_file_mutex_lock_failed:
     connection_info->thread_complete = true;
+    close(connection_info->client_descriptor);
 
     return NULL;
 }

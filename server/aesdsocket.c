@@ -65,6 +65,7 @@ void handle_incoming_signal(int signal)
 
     if (server_descriptor != NULL)
     {
+        shutdown(*server_descriptor, SHUT_RDWR);
         close(*server_descriptor);
         free(server_descriptor);
     }
@@ -124,6 +125,18 @@ int main(int argc, char *argv[])
     server_address->sin_addr.s_addr = htonl(INADDR_ANY);
     server_address->sin_family = AF_INET;
     server_address->sin_port = htons(9000);
+
+    if (setsockopt(*server_descriptor, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1)
+    {
+        perror("setsockopt");
+        goto set_socket_options_failed;
+    }
+
+    if (setsockopt(*server_descriptor, SOL_SOCKET, SO_REUSEPORT, &(int){1}, sizeof(int)) == -1)
+    {
+        perror("setsockopt");
+        goto set_socket_options_failed;
+    }
 
     if (bind(*server_descriptor, (struct sockaddr *)server_address, sizeof(*server_address)) == -1)
     {
@@ -251,12 +264,6 @@ int main(int argc, char *argv[])
                     perror("pthread_join");
                 }
 
-                if (close(iter->connection_info.client_descriptor))
-                {
-                    // log error and continue
-                    perror("close");
-                }
-
                 free(iter);
             }
         }
@@ -287,7 +294,10 @@ output_file_mutex_malloc_failed:
 fopen_failed:
 listen_failed:
 daemon_init_failed:
+    shutdown(*server_descriptor, SHUT_RDWR);
+    close(*server_descriptor);
 bind_failed:
+set_socket_options_failed:
     free(server_address);
 server_address_malloc_failed:
 socket_failed:
