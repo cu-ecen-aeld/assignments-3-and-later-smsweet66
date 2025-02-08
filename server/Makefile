@@ -1,10 +1,6 @@
 all: aesdsocket
 
-aesdsocket: aesdsocket.o
-	${CC} ${LDFLAGS} aesdsocket.o -o aesdsocket
-
-aesdsocket.o: aesdsocket.c
-	${CC} ${CCFLAGS} -c aesdsocket.c 
+aesdsocket: aesdsocket.o connection_info.o timestamp_writer.o
 
 clean:
-	rm -f aesdsocket.o aesdsocket
+	rm -f *.o aesdsocket
