@@ -1,6 +1,7 @@
 #include "timestamp_writer.h"
 
 #include <time.h>
+#include <errno.h>
 
 void *timestamp_writer_thread_function(void *thread_arguments)
 {
@@ -8,16 +9,11 @@ void *timestamp_writer_thread_function(void *thread_arguments)
 
     while (true)
     {
-        struct timespec start = {0};
-        clock_gettime(CLOCK_MONOTONIC, &start);
+        struct timespec start = {.tv_sec = 10};
 
-        struct timespec now = {0};
-        for (clock_gettime(CLOCK_MONOTONIC, &now); now.tv_sec - start.tv_sec < 10; clock_gettime(CLOCK_MONOTONIC, &now))
+        if (nanosleep(&start, NULL) == -1 && errno == EINTR)
         {
-            if (atomic_load(&timestamp_writer->should_close))
-            {
-                return NULL;
-            }
+            return NULL;
         }
 
         char buffer[80] = {0};
@@ -53,6 +49,11 @@ void *timestamp_writer_thread_function(void *thread_arguments)
         if (pthread_mutex_unlock(timestamp_writer->output_file_mutex) != 0)
         {
             perror("pthread_mutex_unlock");
+            return NULL;
+        }
+
+        if (atomic_load(&timestamp_writer->should_close))
+        {
             return NULL;
         }
     }

@@ -19,8 +19,16 @@ TimestampWriterThread *timestamp_writer_thread = NULL;
 
 ConnectionListHead *head = NULL;
 
+pthread_t main_thread = 0;
+
 void handle_incoming_signal(int signal)
 {
+    // Prevent signal handler from running on child threads;
+    if (pthread_self() != main_thread)
+    {
+        return;
+    }
+
     syslog(LOG_NOTICE, "Caught signal, exiting");
     if (head != NULL)
     {
@@ -40,6 +48,7 @@ void handle_incoming_signal(int signal)
     if (timestamp_writer_thread != NULL)
     {
         atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
+        pthread_kill(timestamp_writer_thread->thread, SIGINT);
         pthread_join(timestamp_writer_thread->thread, NULL);
         free(timestamp_writer_thread);
     }
@@ -69,11 +78,14 @@ void handle_incoming_signal(int signal)
 
     closelog();
     remove("/var/tmp/aesdsocketdata");
+
     exit(0);
 }
 
 int main(int argc, char *argv[])
 {
+    main_thread = pthread_self();
+
     if (argc == 2 && strncmp(argv[1], "-d", 2) != 0)
     {
         fprintf(stderr, "Expected -d argument, got %s", argv[1]);
@@ -118,13 +130,8 @@ int main(int argc, char *argv[])
     server_address->sin_family = AF_INET;
     server_address->sin_port = htons(9000);
 
-    if (setsockopt(*server_descriptor, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1)
-    {
-        perror("setsockopt");
-        goto set_socket_options_failed;
-    }
-
-    if (setsockopt(*server_descriptor, SOL_SOCKET, SO_REUSEPORT, &(int){1}, sizeof(int)) == -1)
+    const int enable = 1;
+    if (setsockopt(*server_descriptor, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) == -1)
     {
         perror("setsockopt");
         goto set_socket_options_failed;
@@ -138,7 +145,8 @@ int main(int argc, char *argv[])
 
     if (argc == 2)
     {
-        if (daemon(0, 0) != 0)
+        fprintf(stderr, "\nCreating daemon\n");
+        if (daemon(1, 1) != 0)
         {
             perror("daemon");
             goto daemon_init_failed;
@@ -271,6 +279,7 @@ error_in_loop:
     free(head);
 connection_list_head_malloc_failed:
     atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
+    pthread_kill(timestamp_writer_thread->thread, SIGINT);
     pthread_join(timestamp_writer_thread->thread, NULL);
 timestamp_writer_thread_create_failed:
     free(timestamp_writer_thread);

@@ -38,7 +38,7 @@ void *connection_thread_function(void *thread_arguments)
     memset(connection_info->message_buffer, 0, sizeof(connection_info->message_buffer));
     while (fgets(connection_info->message_buffer, sizeof(connection_info->message_buffer), connection_info->output_file) != NULL)
     {
-        if (sendto(connection_info->client_descriptor, connection_info->message_buffer, strlen(connection_info->message_buffer), 0, (struct sockaddr *)&connection_info->client_address, connection_info->client_length) == -1)
+        if (sendto(connection_info->client_descriptor, connection_info->message_buffer, strlen(connection_info->message_buffer), MSG_NOSIGNAL, (struct sockaddr *)&connection_info->client_address, connection_info->client_length) == -1)
         {
             perror("sendto");
             goto early_return;
@@ -53,6 +53,7 @@ early_return:
     syslog(LOG_NOTICE, "Closed connection from %s", inet_ntoa(connection_info->client_address.sin_addr));
 output_file_mutex_lock_failed:
     atomic_store(&connection_info->thread_complete, true);
+    shutdown(connection_info->client_descriptor, SHUT_RDWR);
     close(connection_info->client_descriptor);
 
     return NULL;
