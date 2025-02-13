@@ -1,4 +1,5 @@
 # echo "hello_world" > /dev/faulty
+This first part here gives some basic information about what the error is.  The first line is the most important as it clearly states the error is a NULL pointer dereference.
 ```
 Unable to handle kernel NULL pointer dereference at virtual address 0000000000000000
 Mem abort info:
@@ -30,6 +31,9 @@ x11: 0000000000000000 x10: 0000000000000000 x9 : 0000000000000000
 x8 : 0000000000000000 x7 : 0000000000000000 x6 : 0000000000000000
 x5 : 0000000000000001 x4 : ffffffc000787000 x3 : ffffffc008e03dc0
 x2 : 000000000000000c x1 : 0000000000000000 x0 : 0000000000000000
+```
+This next part describes where in the program the error occured.  The top entry on the call trace is where the error occured within the kernel module.  Based on that we can see that the error occured within the faulty_write function within the faulty module.  More specifically, it occured 0x10 (16) bytes into the function and the function is 0x20 (32) bytes long.
+```
 Call trace:
  faulty_write+0x10/0x20 [faulty]
  ksys_write+0x74/0x110
