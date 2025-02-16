@@ -119,16 +119,16 @@ AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuf
  * Any memory referenced in @param add_entry must be allocated by the caller.
  * After the allocation, the circular buffer will free the allocated memory when necessary.
  */
-AesdBufferEntry *aesd_circular_buffer_add_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
+const char *aesd_circular_buffer_add_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
 {
-    AesdBufferEntry *buffptr = &buffer->entry[buffer->in_offs];
+    const char *entry_buffer = buffer->entry[buffer->in_offs].buffptr;
     buffer->entry[buffer->in_offs].buffptr = entry->buffptr;
     buffer->entry[buffer->in_offs].size = entry->size;
     buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
     if (buffer->full)
     {
         buffer->out_offs = (buffer->out_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-        return buffptr;
+        return entry_buffer;
     }
     else if (buffer->in_offs == buffer->out_offs)
     {

@@ -124,7 +124,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 {
     ssize_t retval = count;
     AesdDevice *device;
-    AesdBufferEntry *result;
+    const char *result;
     AesdBufferEntry entry;
 
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
@@ -186,6 +186,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         if (result != NULL)
         {
             kfree(result);
+            result = NULL;
         }
     }
 
