@@ -35,7 +35,12 @@ AesdDevice aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
+    AesdDevice *device;
+
     PDEBUG("open");
+
+    device = container_of(inode->i_cdev, AesdDevice, cdev);
+    filp->private_data = device;
 
     return 0;
 }
