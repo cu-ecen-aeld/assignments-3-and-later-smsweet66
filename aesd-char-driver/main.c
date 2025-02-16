@@ -102,9 +102,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     {
         str_len = entry->size - entry_offset;
         copy_len = (count - bytes_read < str_len) ? count - bytes_read : str_len;
-        bytes_read -= copy_to_user(buf + bytes_read, entry->buffptr + entry_offset, copy_len);
+        bytes_read += copy_len - copy_to_user(buf + bytes_read, entry->buffptr + entry_offset, copy_len);
 
-        bytes_read += copy_len;
         entry_offset = 0;
         entry = next_entry(device->buffer, entry);
         if (entry == NULL)

@@ -55,8 +55,6 @@ extern void clear_buffer(AesdCircularBuffer *buffer);
 
 extern AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
-extern AesdBufferEntry *previous_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
-
 extern size_t index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
 extern AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuffer *buffer,
