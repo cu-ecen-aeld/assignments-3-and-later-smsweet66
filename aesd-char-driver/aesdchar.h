@@ -33,7 +33,7 @@ typedef struct AesdDevice
      AesdCircularBuffer *buffer;
      struct mutex *device_mutex;
 
-     const char *current_write;
+     char *current_write;
      size_t current_write_len;
 
      struct cdev cdev; /* Char device structure      */

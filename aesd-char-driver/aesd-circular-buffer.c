@@ -29,50 +29,51 @@ void clear_buffer(AesdCircularBuffer *buffer)
     }
 }
 
-const AesdBufferEntry *next_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry)
+AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
 {
-    size_t index = index_of(buffer, entry);
-    if (index == -1)
+    size_t entry_index = index_of(buffer, entry);
+    if (entry_index == -1)
     {
         return NULL;
     }
 
-    index = (index + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-    if (index == buffer->in_offs)
+    entry_index = (entry_index + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    if (entry_index == buffer->in_offs)
     {
         return NULL;
     }
 
-    return &buffer->entry[index];
+    return &buffer->entry[entry_index];
 }
 
-const AesdBufferEntry *previous_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry)
+AesdBufferEntry *previous_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
 {
-    size_t index = index_of(buffer, entry);
-    if (index == -1 || index == buffer->out_offs)
+    size_t entry_index = index_of(buffer, entry);
+    if (entry_index == -1 || entry_index == buffer->out_offs)
     {
         return NULL;
     }
 
-    index = (index + AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED - 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    entry_index = (entry_index + AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED - 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
 
-    return &buffer->entry[index];
+    return &buffer->entry[entry_index];
 }
 
-size_t index_of(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry)
+size_t index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
 {
+    size_t entry_index;
     if (entry < (AesdBufferEntry *)buffer->entry)
     {
         return -1;
     }
 
-    size_t index = (entry - (AesdBufferEntry *)buffer->entry) / sizeof(AesdBufferEntry);
-    if (index >= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+    entry_index = (entry - (AesdBufferEntry *)buffer->entry) / sizeof(AesdBufferEntry);
+    if (entry_index >= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
     {
         return -1;
     }
 
-    return index;
+    return entry_index;
 }
 
 /**
@@ -88,13 +89,14 @@ size_t index_of(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry)
 AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuffer *buffer,
                                                                  size_t char_offset, size_t *entry_offset_byte_rtn)
 {
+    AesdBufferEntry *entry;
     if (buffer->out_offs == buffer->in_offs && !buffer->full)
     {
         *entry_offset_byte_rtn = char_offset;
         return NULL;
     }
 
-    AesdBufferEntry *entry = &buffer->entry[buffer->out_offs];
+    entry = &buffer->entry[buffer->out_offs];
 
     if (char_offset < entry->size)
     {

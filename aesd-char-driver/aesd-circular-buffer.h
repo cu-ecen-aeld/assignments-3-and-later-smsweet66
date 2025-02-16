@@ -53,11 +53,11 @@ typedef struct aesd_circular_buffer
 
 extern void clear_buffer(AesdCircularBuffer *buffer);
 
-extern const AesdBufferEntry *next_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
+extern AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
-extern const AesdBufferEntry *previous_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
+extern AesdBufferEntry *previous_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
-extern size_t index_of(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
+extern size_t index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
 extern AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuffer *buffer,
                                                                         size_t char_offset, size_t *entry_offset_byte_rtn);

@@ -35,11 +35,13 @@ AesdDevice aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
+    AesdDevice *device;
+
     PDEBUG("open");
 
-    AesdDevice *device = container_of(inode->i_cdev, AesdDevice, cdev);
+    device = container_of(inode->i_cdev, AesdDevice, cdev);
     filp->private_data = device;
-    if (filp->f_flags & O_ACCMODE == O_WRONLY)
+    if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
     {
         if (mutex_lock_interruptible(device->device_mutex))
         {
@@ -71,35 +73,37 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos)
 {
     ssize_t bytes_read = 0;
+    size_t entry_offset = 0;
+    size_t str_len = 0;
+    size_t copy_len = 0;
+    AesdDevice *device;
+    AesdBufferEntry *entry;
+
     PDEBUG("read %zu bytes with offset %lld", count, *f_pos);
-    if (filp->f_flags & O_ACCMODE == O_WRONLY)
+    if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
     {
         return -EPERM;
     }
 
-    AesdDevice *device = (AesdDevice *)filp->private_data;
+    device = (AesdDevice *)filp->private_data;
 
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
         goto device_mutex_lock_failed;
     }
 
-    size_t entry_offset = 0;
-    AesdBufferEntry *entry = aesd_circular_buffer_find_entry_offset_for_fpos(device->buffer, *f_pos, &entry_offset);
+    entry = aesd_circular_buffer_find_entry_offset_for_fpos(device->buffer, *f_pos, &entry_offset);
     if (entry == NULL)
     {
         goto close_function;
     }
 
-    size_t str_len = 0;
-    size_t copy_len = 0;
     while (bytes_read < count)
     {
         str_len = entry->size - entry_offset;
         copy_len = (count - bytes_read < str_len) ? count - bytes_read : str_len;
-        copy_to_user(buf + bytes_read, entry->buffptr + entry_offset, copy_len);
+        bytes_read += copy_to_user(buf + bytes_read, entry->buffptr + entry_offset, copy_len);
 
-        bytes_read += copy_len;
         entry_offset = 0;
         entry = next_entry(device->buffer, entry);
         if (entry == NULL)
@@ -119,13 +123,17 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                    loff_t *f_pos)
 {
     ssize_t retval = count;
+    AesdDevice *device;
+    AesdBufferEntry *result;
+    AesdBufferEntry entry;
+
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
-    if (filp->f_flags & O_ACCMODE == O_RDONLY)
+    if ((filp->f_flags & O_ACCMODE) == O_RDONLY)
     {
         return -EPERM;
     }
 
-    AesdDevice *device = filp->private_data;
+    device = filp->private_data;
 
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
@@ -135,7 +143,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if (device->current_write != NULL)
     {
-        const char *temp_write = kmalloc_array(device->current_write_len + count, sizeof(char), GFP_KERNEL);
+        char *temp_write = kmalloc_array(device->current_write_len + count, sizeof(char), GFP_KERNEL);
         if (temp_write == NULL)
         {
             retval = -ENOMEM;
@@ -167,12 +175,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if (device->current_write[device->current_write_len - 1] == '\n')
     {
-        AesdBufferEntry entry = {
+        entry = (AesdBufferEntry){
             .buffptr = device->current_write,
             .size = device->current_write_len,
         };
 
-        AesdBufferEntry *result = aesd_circular_buffer_add_entry(device->buffer, &entry);
+        result = aesd_circular_buffer_add_entry(device->buffer, &entry);
         device->current_write = NULL;
         device->current_write_len = 0;
         if (result != NULL)
