@@ -26,7 +26,7 @@ void *connection_thread_function(void *thread_arguments)
     if (output_file == NULL)
     {
         perror("fopen");
-        goto early_return;
+        goto fopen_failed;
     }
 
     while (strchr(connection_info->message_buffer, '\n') == NULL)
@@ -58,8 +58,9 @@ void *connection_thread_function(void *thread_arguments)
         }
     }
 
-    fclose(output_file);
 early_return:
+    fclose(output_file);
+fopen_failed:
     if (pthread_mutex_unlock(connection_info->output_file_mutex))
     {
         perror("pthread_mutex_unlock");
