@@ -246,6 +246,7 @@ int aesd_init_module(void)
     if (aesd_device.device_mutex == NULL)
     {
         result = ENOMEM;
+        goto device_mutex_malloc_failed;
     }
 
     memset(aesd_device.device_mutex, 0, sizeof(struct mutex));
