@@ -41,7 +41,7 @@ int aesd_open(struct inode *inode, struct file *filp)
 
     device = container_of(inode->i_cdev, AesdDevice, cdev);
     filp->private_data = device;
-    if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
+    if ((filp->f_flags & O_TRUNC) == O_TRUNC)
     {
         if (mutex_lock_interruptible(device->device_mutex))
         {

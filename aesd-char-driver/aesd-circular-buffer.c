@@ -21,6 +21,9 @@
 
 void clear_buffer(AesdCircularBuffer *buffer)
 {
+    buffer->full = 0;
+    buffer->in_offs = 0;
+    buffer->out_offs = 0;
     for (size_t i = 0; i < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED; ++i)
     {
         FREE(buffer->entry[i].buffptr);
