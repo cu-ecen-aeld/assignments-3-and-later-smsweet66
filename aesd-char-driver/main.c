@@ -35,29 +35,7 @@ AesdDevice aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
-    AesdDevice *device;
-
     PDEBUG("open");
-
-    device = container_of(inode->i_cdev, AesdDevice, cdev);
-    filp->private_data = device;
-    if ((filp->f_flags & O_TRUNC) == O_TRUNC)
-    {
-        if (mutex_lock_interruptible(device->device_mutex))
-        {
-            return -ERESTARTSYS;
-        }
-
-        clear_buffer(device->buffer);
-        if (device->current_write != NULL)
-        {
-            kfree(device->current_write);
-            device->current_write = NULL;
-            device->current_write_len = 0;
-        }
-
-        mutex_unlock(device->device_mutex);
-    }
 
     return 0;
 }
