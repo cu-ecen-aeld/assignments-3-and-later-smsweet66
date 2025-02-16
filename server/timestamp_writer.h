@@ -8,7 +8,6 @@
 
 typedef struct TimestampWriter
 {
-    FILE *output_file;
     pthread_mutex_t *output_file_mutex;
 
     atomic_bool should_close;

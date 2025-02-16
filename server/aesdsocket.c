@@ -9,12 +9,9 @@
 #include "connection_info.h"
 #include "timestamp_writer.h"
 
-#define USE_AESD_CHAR_DEVICE 1
-
 int *server_descriptor = NULL;
 struct sockaddr_in *server_address = NULL;
 
-FILE *output_file = NULL;
 pthread_mutex_t *output_file_mutex = NULL;
 
 #if !USE_AESD_CHAR_DEVICE
@@ -58,11 +55,6 @@ void handle_incoming_signal(int signal)
         free(timestamp_writer_thread);
     }
 #endif
-
-    if (output_file != NULL)
-    {
-        fclose(output_file);
-    }
 
     if (output_file_mutex != NULL)
     {
@@ -167,17 +159,6 @@ int main(int argc, char *argv[])
         goto listen_failed;
     }
 
-#if USE_AESD_CHAR_DEVICE
-    output_file = fopen("/dev/aesdchar", "w+");
-#else
-    output_file = fopen("/var/tmp/aesdsocketdata", "w+");
-#endif
-    if (output_file == NULL)
-    {
-        perror("fopen");
-        goto fopen_failed;
-    }
-
     output_file_mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
     if (output_file_mutex == NULL)
     {
@@ -242,7 +223,6 @@ int main(int argc, char *argv[])
         }
 
         syslog(LOG_NOTICE, "Accepted connection from %s", inet_ntoa(connection_thread->connection_info.client_address.sin_addr));
-        connection_thread->connection_info.output_file = output_file;
         connection_thread->connection_info.output_file_mutex = output_file_mutex;
 
         if (pthread_create(&connection_thread->thread, NULL, connection_thread_function, (void *)&connection_thread->connection_info) != 0)
@@ -305,8 +285,6 @@ timestamp_writer_thread_malloc_failed:
 output_file_mutex_init_failed:
     free(output_file_mutex);
 output_file_mutex_malloc_failed:
-    fclose(output_file);
-fopen_failed:
 listen_failed:
 daemon_init_failed:
     shutdown(*server_descriptor, SHUT_RDWR);

@@ -6,6 +6,7 @@
 void *timestamp_writer_thread_function(void *thread_arguments)
 {
     TimestampWriter *timestamp_writer = (TimestampWriter *)thread_arguments;
+    FILE *output_file = NULL;
 
     while (true)
     {
@@ -40,11 +41,20 @@ void *timestamp_writer_thread_function(void *thread_arguments)
             return NULL;
         }
 
-        if (fprintf(timestamp_writer->output_file, "timestamp:%s\n", buffer) == -1)
+        output_file = fopen("/var/tmp/aesdsocketdata", "a+");
+        if (output_file == NULL)
         {
-            fprintf(stderr, "writing time to file failed\n");
             return NULL;
         }
+
+        if (fprintf(output_file, "timestamp:%s\n", buffer) == -1)
+        {
+            fprintf(stderr, "writing time to file failed\n");
+            fclose(output_file);
+            return NULL;
+        }
+
+        fclose(output_file);
 
         if (pthread_mutex_unlock(timestamp_writer->output_file_mutex) != 0)
         {

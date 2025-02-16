@@ -7,9 +7,10 @@
 #include <stdio.h>
 #include <sys/queue.h>
 
+#define USE_AESD_CHAR_DEVICE 1
+
 typedef struct ConnectionInfo
 {
-    FILE *output_file;
     pthread_mutex_t *output_file_mutex;
 
     int client_descriptor;
