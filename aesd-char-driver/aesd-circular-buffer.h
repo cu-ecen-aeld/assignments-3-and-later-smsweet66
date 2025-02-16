@@ -18,7 +18,7 @@
 
 #define AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED 10
 
-struct aesd_buffer_entry
+typedef struct aesd_buffer_entry
 {
     /**
      * A location where the buffer contents in buffptr are stored
@@ -28,14 +28,14 @@ struct aesd_buffer_entry
      * Number of bytes stored in buffptr
      */
     size_t size;
-};
+} AesdBufferEntry;
 
-struct aesd_circular_buffer
+typedef struct aesd_circular_buffer
 {
     /**
      * An array of pointers to memory allocated for the most recent write operations
      */
-    struct aesd_buffer_entry  entry[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED];
+    AesdBufferEntry entry[AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED];
     /**
      * The current location in the entry structure where the next write should
      * be stored.
@@ -49,34 +49,40 @@ struct aesd_circular_buffer
      * set to true when the buffer entry structure is full
      */
     bool full;
-};
+} AesdCircularBuffer;
 
-extern struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
-            size_t char_offset, size_t *entry_offset_byte_rtn );
+extern void clear_buffer(AesdCircularBuffer *buffer);
 
-extern void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry);
+extern const AesdBufferEntry *next_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
 
-extern void aesd_circular_buffer_init(struct aesd_circular_buffer *buffer);
+extern const AesdBufferEntry *previous_entry(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
+
+extern size_t index_of(const AesdCircularBuffer *buffer, const AesdBufferEntry *entry);
+
+extern AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuffer *buffer,
+                                                                        size_t char_offset, size_t *entry_offset_byte_rtn);
+
+extern AesdBufferEntry *aesd_circular_buffer_add_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
+
+extern void aesd_circular_buffer_init(AesdCircularBuffer *buffer);
 
 /**
  * Create a for loop to iterate over each member of the circular buffer.
  * Useful when you've allocated memory for circular buffer entries and need to free it
- * @param entryptr is a struct aesd_buffer_entry* to set with the current entry
- * @param buffer is the struct aesd_buffer * describing the buffer
+ * @param entryptr is a AesdBufferEntry* to set with the current entry
+ * @param buffer is the AesdCircularBuffer* describing the buffer
  * @param index is a uint8_t stack allocated value used by this macro for an index
  * Example usage:
  * uint8_t index;
- * struct aesd_circular_buffer buffer;
- * struct aesd_buffer_entry *entry;
+ * AesdCircularBuffer buffer;
+ * AesdBufferEntry *entry;
  * AESD_CIRCULAR_BUFFER_FOREACH(entry,&buffer,index) {
  *      free(entry->buffptr);
  * }
  */
-#define AESD_CIRCULAR_BUFFER_FOREACH(entryptr,buffer,index) \
-    for(index=0, entryptr=&((buffer)->entry[index]); \
-            index<AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED; \
-            index++, entryptr=&((buffer)->entry[index]))
-
-
+#define AESD_CIRCULAR_BUFFER_FOREACH(entryptr, buffer, index) \
+    for (index = 0, entryptr = &((buffer)->entry[index]);     \
+         index < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;     \
+         index++, entryptr = &((buffer)->entry[index]))
 
 #endif /* AESD_CIRCULAR_BUFFER_H */

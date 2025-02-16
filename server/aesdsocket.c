@@ -9,13 +9,17 @@
 #include "connection_info.h"
 #include "timestamp_writer.h"
 
+#define USE_AESD_CHAR_DEVICE 1
+
 int *server_descriptor = NULL;
 struct sockaddr_in *server_address = NULL;
 
 FILE *output_file = NULL;
 pthread_mutex_t *output_file_mutex = NULL;
 
+#if !USE_AESD_CHAR_DEVICE
 TimestampWriterThread *timestamp_writer_thread = NULL;
+#endif
 
 ConnectionListHead *head = NULL;
 
@@ -45,6 +49,7 @@ void handle_incoming_signal(int signal)
         free(head);
     }
 
+#if !USE_AESD_CHAR_DEVICE
     if (timestamp_writer_thread != NULL)
     {
         atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
@@ -52,6 +57,7 @@ void handle_incoming_signal(int signal)
         pthread_join(timestamp_writer_thread->thread, NULL);
         free(timestamp_writer_thread);
     }
+#endif
 
     if (output_file != NULL)
     {
@@ -77,7 +83,9 @@ void handle_incoming_signal(int signal)
     }
 
     closelog();
+#if !USE_AESD_CHAR_DEVICE
     remove("/var/tmp/aesdsocketdata");
+#endif
 
     exit(0);
 }
@@ -159,7 +167,11 @@ int main(int argc, char *argv[])
         goto listen_failed;
     }
 
+#if USE_AESD_CHAR_DEVICE
+    output_file = fopen("/dev/aesdchar", "w+");
+#else
     output_file = fopen("/var/tmp/aesdsocketdata", "w+");
+#endif
     if (output_file == NULL)
     {
         perror("fopen");
@@ -179,6 +191,7 @@ int main(int argc, char *argv[])
         goto output_file_mutex_init_failed;
     }
 
+#if !USE_AESD_CHAR_DEVICE
     timestamp_writer_thread = (TimestampWriterThread *)malloc(sizeof(TimestampWriterThread));
     if (timestamp_writer_thread == NULL)
     {
@@ -194,6 +207,7 @@ int main(int argc, char *argv[])
         perror("pthread_create");
         goto timestamp_writer_thread_create_failed;
     }
+#endif
 
     openlog(NULL, 0, LOG_USER);
 
@@ -242,7 +256,7 @@ int main(int argc, char *argv[])
         ConnectionThread *iter = SLIST_FIRST(head);
         ConnectionThread *next_connection = SLIST_NEXT(iter, next);
 
-        // Skips theck of list head as it was just created
+        // Skips check of list head as it was just created
         while (next_connection != NULL)
         {
             if (atomic_load(&next_connection->connection_info.thread_complete))
@@ -278,12 +292,14 @@ error_in_loop:
 
     free(head);
 connection_list_head_malloc_failed:
+#if !USE_AESD_CHAR_DEVICE
     atomic_store(&timestamp_writer_thread->thread_arguments.should_close, true);
     pthread_kill(timestamp_writer_thread->thread, SIGINT);
     pthread_join(timestamp_writer_thread->thread, NULL);
 timestamp_writer_thread_create_failed:
     free(timestamp_writer_thread);
 timestamp_writer_thread_malloc_failed:
+#endif
     pthread_mutex_destroy(output_file_mutex);
     closelog();
 output_file_mutex_init_failed:
