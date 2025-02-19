@@ -43,7 +43,7 @@ void *connection_thread_function(void *thread_arguments)
 
         connection_info->message_buffer[received_bytes] = '\0';
 
-        if (strncmp(connection_info->message_buffer, "AESDCHAR_IOCSEEKTO:", 19) == 0 && strlen(connection_info->message_buffer) == 22)
+        if (strncmp(connection_info->message_buffer, "AESDCHAR_IOCSEEKTO:", 19) == 0 && strlen(connection_info->message_buffer) == 23)
         {
             int file_descriptor = fileno(output_file);
             AesdSeekTo seek_to = {
