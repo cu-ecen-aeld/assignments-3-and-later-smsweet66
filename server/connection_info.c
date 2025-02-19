@@ -43,12 +43,12 @@ void *connection_thread_function(void *thread_arguments)
 
         connection_info->message_buffer[received_bytes] = '\0';
 
-        if (strncmp(connection_info->message_buffer, "AESDCHAR_IOCSEEKTO:", 20) && strlen(connection_info->message_buffer) == 24)
+        if (strncmp(connection_info->message_buffer, "AESDCHAR_IOCSEEKTO:", 19) == 0 && strlen(connection_info->message_buffer) == 22)
         {
             int file_descriptor = fileno(output_file);
             AesdSeekTo seek_to = {
-                .write_cmd = connection_info->message_buffer[20] - '0',
-                .write_cmd_offset = connection_info->message_buffer[22] - '0',
+                .write_cmd = connection_info->message_buffer[19] - '0',
+                .write_cmd_offset = connection_info->message_buffer[21] - '0',
             };
 
             ioctl(file_descriptor, AESDCHAR_IOCSEEKTO, &seek_to);
