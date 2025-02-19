@@ -32,6 +32,8 @@ void *connection_thread_function(void *thread_arguments)
         goto fopen_failed;
     }
 
+    bool go_to_beginning = true;
+
     while (strchr(connection_info->message_buffer, '\n') == NULL)
     {
         received_bytes = recv(connection_info->client_descriptor, connection_info->message_buffer, sizeof(connection_info->message_buffer) - 1, 0);
@@ -52,6 +54,7 @@ void *connection_thread_function(void *thread_arguments)
             };
 
             ioctl(file_descriptor, AESDCHAR_IOCSEEKTO, &seek_to);
+            go_to_beginning = false;
         }
         else if (fprintf(output_file, "%s", connection_info->message_buffer) == -1)
         {
@@ -60,7 +63,11 @@ void *connection_thread_function(void *thread_arguments)
         }
     }
 
-    fseek(output_file, 0, SEEK_SET);
+    if (go_to_beginning)
+    {
+        fseek(output_file, 0, SEEK_SET);
+    }
+
     memset(connection_info->message_buffer, 0, sizeof(connection_info->message_buffer));
     while (fgets(connection_info->message_buffer, sizeof(connection_info->message_buffer), output_file) != NULL)
     {
