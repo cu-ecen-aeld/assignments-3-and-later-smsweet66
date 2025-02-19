@@ -16,6 +16,7 @@
 #include <linux/fs.h> // file_operations
 
 #include "aesdchar.h"
+#include "aesd_ioctl.h"
 
 #ifndef __KERNEL__
 #ifdef AESD_DEBUG
@@ -37,7 +38,7 @@ int aesd_open(struct inode *inode, struct file *filp)
 {
     AesdDevice *device;
 
-    PDEBUG("open");
+    PDEBUG("open\n");
 
     device = container_of(inode->i_cdev, AesdDevice, cdev);
     filp->private_data = device;
@@ -47,7 +48,7 @@ int aesd_open(struct inode *inode, struct file *filp)
 
 int aesd_release(struct inode *inode, struct file *filp)
 {
-    PDEBUG("release");
+    PDEBUG("release\n");
 
     return 0;
 }
@@ -62,7 +63,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     AesdDevice *device;
     AesdBufferEntry *entry;
 
-    PDEBUG("read %zu bytes with offset %lld", count, *f_pos);
+    PDEBUG("read %zu bytes with offset %lld\n", count, *f_pos);
     if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
     {
         return -EPERM;
@@ -88,7 +89,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         bytes_read += copy_len - copy_to_user(buf + bytes_read, entry->buffptr + entry_offset, copy_len);
 
         entry_offset = 0;
-        entry = next_entry(device->buffer, entry);
+        entry = aesd_circular_buffer_next_entry(device->buffer, entry);
         if (entry == NULL)
         {
             goto close_function;
@@ -110,7 +111,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     const char *result;
     AesdBufferEntry entry;
 
-    PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
+    PDEBUG("write %zu bytes with offset %lld\n", count, *f_pos);
     if ((filp->f_flags & O_ACCMODE) == O_RDONLY)
     {
         return -EPERM;
@@ -173,10 +174,92 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         }
     }
 
+    (*f_pos) += retval;
 str_malloc_failed:
     mutex_unlock(device->device_mutex);
 device_mutex_lock_failed:
     return retval;
+}
+
+loff_t aesd_seek(struct file *filp, loff_t f_pos, int whence)
+{
+    AesdDevice *device;
+    size_t file_size;
+
+    PDEBUG("Seek to position %zu from location %d\n");
+
+    if (mutex_lock_interruptible(device->device_mutex) != 0)
+    {
+        return -ERESTARTSYS;
+    }
+
+    file_size = aesd_circular_buffer_size(device->buffer);
+
+    mutex_unlock(device->device_mutex);
+
+    return fixed_size_llseek(filp, f_pos, whence, file_size);
+}
+
+long aesd_adjust_file_offset(struct file *filp, uint32_t command, uint32_t command_offset)
+{
+    AesdDevice *device;
+    long position = 0;
+    size_t index = 0;
+    size_t command_index = 0;
+
+    PDEBUG("Seeking to position %u within command %u\n", command_offset, command);
+
+    if (mutex_lock_interruptible(device->device_mutex) != 0)
+    {
+        return -ERESTARTSYS;
+    }
+
+    if ((device->buffer->in_offs == device->buffer->out_offs && !device->buffer->full) || command >= 10)
+    {
+        position = -EINVAL;
+        goto early_return;
+    }
+
+    for (size_t i = 0; i < command; ++i)
+    {
+        index = (i + device->buffer->out_offs) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+
+        position += device->buffer->entry[index].size;
+    }
+
+    command_index = (command + device->buffer->out_offs) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    if (command_offset >= device->buffer->entry[command_index].size)
+    {
+        position = -EINVAL;
+    }
+    else
+    {
+        position += command_offset;
+    }
+
+early_return:
+    mutex_unlock(device->device_mutex);
+
+    return aesd_seek(filp, position, SEEK_SET);
+}
+
+long aesd_ioctl(struct file *filp, unsigned int command, unsigned long arg)
+{
+    switch (command)
+    {
+    case AESDCHAR_IOCSEEKTO:
+        AesdSeekTo seek_to = {0};
+        if (copy_from_user(&seek_to, (const void __user *)arg, sizeof(AesdSeekTo)) != 0)
+        {
+            return EFAULT;
+        }
+        else
+        {
+            return aesd_adjust_file_offset(filp, seek_to.write_cmd, seek_to.write_cmd_offset);
+        }
+    default:
+        return ENOTSUPP;
+    }
 }
 
 struct file_operations aesd_fops = {
@@ -185,6 +268,8 @@ struct file_operations aesd_fops = {
     .write = aesd_write,
     .open = aesd_open,
     .release = aesd_release,
+    .llseek = aesd_seek,
+    .unlocked_ioctl = aesd_ioctl,
 };
 
 static int aesd_setup_cdev(AesdDevice *dev)
@@ -197,7 +282,7 @@ static int aesd_setup_cdev(AesdDevice *dev)
     err = cdev_add(&dev->cdev, devno, 1);
     if (err)
     {
-        printk(KERN_ERR "Error %d adding aesd cdev", err);
+        printk(KERN_ERR "Error %d adding aesd cdev\n", err);
     }
     return err;
 }
@@ -261,10 +346,7 @@ void aesd_cleanup_module(void)
 
     cdev_del(&aesd_device.cdev);
 
-    /**
-     * TODO: cleanup AESD specific poritions here as necessary
-     */
-    clear_buffer(aesd_device.buffer);
+    aesd_circular_buffer_clear(aesd_device.buffer);
     kfree(aesd_device.buffer);
 
     mutex_destroy(aesd_device.device_mutex);

@@ -51,11 +51,13 @@ typedef struct aesd_circular_buffer
     bool full;
 } AesdCircularBuffer;
 
-extern void clear_buffer(AesdCircularBuffer *buffer);
+extern void aesd_circular_buffer_clear(AesdCircularBuffer *buffer);
 
-extern AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
+extern size_t aesd_circular_buffer_size(AesdCircularBuffer *buffer);
 
-extern size_t index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
+extern AesdBufferEntry *aesd_circular_buffer_next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
+
+extern size_t aesd_circular_buffer_index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry);
 
 extern AesdBufferEntry *aesd_circular_buffer_find_entry_offset_for_fpos(AesdCircularBuffer *buffer,
                                                                         size_t char_offset, size_t *entry_offset_byte_rtn);

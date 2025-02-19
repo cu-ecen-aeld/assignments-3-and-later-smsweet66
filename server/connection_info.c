@@ -2,8 +2,11 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 void *connection_thread_function(void *thread_arguments)
 {
@@ -40,7 +43,17 @@ void *connection_thread_function(void *thread_arguments)
 
         connection_info->message_buffer[received_bytes] = '\0';
 
-        if (fprintf(output_file, "%s", connection_info->message_buffer) == -1)
+        if (strncmp(connection_info->message_buffer, "AESDCHAR_IOCSEEKTO:", 20) && strlen(connection_info->message_buffer) == 24)
+        {
+            int file_descriptor = fileno(output_file);
+            AesdSeekTo seek_to = {
+                .write_cmd = connection_info->message_buffer[20] - '0',
+                .write_cmd_offset = connection_info->message_buffer[22] - '0',
+            };
+
+            ioctl(file_descriptor, AESDCHAR_IOCSEEKTO, &seek_to);
+        }
+        else if (fprintf(output_file, "%s", connection_info->message_buffer) == -1)
         {
             fprintf(stderr, "failed to write to file: %s", connection_info->message_buffer);
             goto early_return;

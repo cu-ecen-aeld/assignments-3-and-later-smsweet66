@@ -22,7 +22,8 @@
  * A structure to be passed by IOCTL from user space to kernel space, describing the type
  * of seek performed on the aesdchar driver
  */
-struct aesd_seekto {
+typedef struct aesd_seekto
+{
     /**
      * The zero referenced write command to seek into
      */
@@ -31,7 +32,7 @@ struct aesd_seekto {
      * The zero referenced offset within the write
      */
     uint32_t write_cmd_offset;
-};
+} AesdSeekTo;
 
 // Pick an arbitrary unused value from https://github.com/torvalds/linux/blob/master/Documentation/userspace-api/ioctl/ioctl-number.rst
 #define AESD_IOC_MAGIC 0x16

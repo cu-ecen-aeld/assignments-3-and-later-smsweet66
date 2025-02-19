@@ -19,7 +19,7 @@
 #define FREE(pointer)
 #endif
 
-void clear_buffer(AesdCircularBuffer *buffer)
+void aesd_circular_buffer_clear(AesdCircularBuffer *buffer)
 {
     buffer->full = 0;
     buffer->in_offs = 0;
@@ -32,9 +32,20 @@ void clear_buffer(AesdCircularBuffer *buffer)
     }
 }
 
-AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
+size_t aesd_circular_buffer_size(AesdCircularBuffer *buffer)
 {
-    size_t entry_index = index_of(buffer, entry);
+    size_t size = 0;
+    for (size_t i = 0; i < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED; ++i)
+    {
+        size += buffer->entry[i].size;
+    }
+
+    return size;
+}
+
+AesdBufferEntry *aesd_circular_buffer_next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
+{
+    size_t entry_index = aesd_circular_buffer_index_of(buffer, entry);
     if (entry_index == -1)
     {
         return NULL;
@@ -49,7 +60,7 @@ AesdBufferEntry *next_entry(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
     return &buffer->entry[entry_index];
 }
 
-size_t index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
+size_t aesd_circular_buffer_index_of(AesdCircularBuffer *buffer, AesdBufferEntry *entry)
 {
     size_t entry_index;
     if (entry < (AesdBufferEntry *)buffer->entry)
