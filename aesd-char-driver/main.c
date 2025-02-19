@@ -186,8 +186,9 @@ loff_t aesd_seek(struct file *filp, loff_t f_pos, int whence)
     AesdDevice *device;
     size_t file_size;
 
-    PDEBUG("Seek to position %zu from location %d\n");
+    PDEBUG("Seek to position %lld from location %d\n", f_pos, whence);
 
+    device = filp->private_data;
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
         return -ERESTARTSYS;
@@ -209,6 +210,7 @@ long aesd_adjust_file_offset(struct file *filp, uint32_t command, uint32_t comma
 
     PDEBUG("Seeking to position %u within command %u\n", command_offset, command);
 
+    device = filp->private_data;
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
         return -ERESTARTSYS;
